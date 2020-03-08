@@ -145,11 +145,8 @@ int registerCredentials(char* username, unsigned long password) {
     char stringPassword[16];
     itoa(password, stringPassword, 10);
     
-    fwrite(username, sizeof(char), sizeof(username), db);
-    fwrite(",", sizeof(char), sizeof(","), db);
-    fwrite(stringPassword, sizeof(char), sizeof(stringPassword), db);
-    fwrite(",\n", sizeof(char), sizeof(",\n"), db);
-    
+    fprintf(db, "%s,%s,\n", username, stringPassword);    
+
     fclose(db);
     return 0;
 }
@@ -187,6 +184,7 @@ int main() {
     }            
     
     // =============== DEBUG ==================
+    // printf("%d\n", checkUsername("test\0"));
     // printf("%d\n", checkCredentials("test\0", 1234567890));
     // printf("%d\n", registerCredentials("test\0", 1234));
     
