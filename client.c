@@ -70,26 +70,40 @@ int main()
 */
 
 int openInterface() {
-    // todo: implement
     // return some error code != 0 if encountered fatal problem
     return 0;
 }
 
+unsigned long hash(char *str) {
+    unsigned long hash = 5381;
+    int c;
+
+    while (c = *str++)
+        hash = ((hash << 5) + hash) + c; 
+
+    return hash;
+}
+
 int checkCredentials(char* username, char* password) {
-    // check if username and password hash match on server
+    unsigned long passwordHash = hash(password);
+
+    // check if username and passwordHash match on server
     // if yes, return 0
+
     return 0;
 }
 
 int registerCredentials(char* username, char* password) {
-    // send new credentials to server to register
+    unsigned long passwordHash = hash(password);
+
+    // send new credentials to server to register (username and passwordHash)
+
     return checkCredentials(username, password);
 }
 
-int checkUsername(char* username) {
+int checkUsername(char* username) {                 
     // check with server if username is not already taken
     // if username is free, return 0 
-    // else, return anything else
     return 0;
 }
 
