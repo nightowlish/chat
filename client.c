@@ -69,13 +69,58 @@ int main()
 } 
 */
 
+int openInterface() {
+    // todo: implement
+    // return some error code != 0 if encountered fatal problem
+    return 0;
+}
+
 int checkCredentials(char* username, char* password) {
+    // check if username and password hash match on server
+    // if yes, return 0
+    return 0;
+}
+
+int registerCredentials(char* username, char* password) {
+    // send new credentials to server to register
+    return checkCredentials(username, password);
+}
+
+int checkUsername(char* username) {
+    // check with server if username is not already taken
+    // if username is free, return 0 
+    // else, return anything else
     return 0;
 }
 
 int signup() {
-    printf("Signup\n");
-    return 0;
+    char* username = malloc(sizeof (char) * MAX_SIZE);
+    char* password = malloc(sizeof (char) * MAX_SIZE);
+    char* password2 = malloc(sizeof (char) * MAX_SIZE);
+    
+    printf("Enter username:\n");
+    gets(username);
+    if (checkUsername(username) != 0) {
+        printf("Username not available!\n");
+        return signup();
+    }
+
+    printf("Enter password:\n");
+    gets(password);
+    printf("Enter password again:\n");
+    gets(password2);
+    if (strcmp(password, password2) != 0) {
+        printf("Passwords don't match!\n");
+        return signup();
+    }
+    
+    int success = registerCredentials(username, password);
+    free(username); free(password); free(password2);
+    if (success == 0)
+        printf("User registered successfully. Login.\n");
+    else
+        printf("User couldn't be registered. Try again.\n");
+    return success;
 }
 
 char* login() {
@@ -105,18 +150,24 @@ char* authenticate() {
     if (c != 108 && c != 115)
         return authenticate();
 
-    if (c == 115)
-        signup();
+    if (c == 115) {
+        int success;
+        while ((success = signup()) != 0);
+    }
     return login();
 }
 
 int main() {
 
     char* auth = authenticate();
-    if (auth == NULL) 
+    if (auth == NULL) {
         printf("Authentication failed!\n");
+        return -1;
+    }
     else
         printf("Authentication successful!\n");
 
+    printf("Starting chat...\n");
+    return openInterface();
 }
     
