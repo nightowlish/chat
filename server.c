@@ -1,94 +1,195 @@
 #include <stdio.h> 
-#include <netdb.h> 
-#include <netinet/in.h> 
 #include <stdlib.h> 
 #include <string.h> 
-#include <sys/socket.h> 
-#include <sys/types.h> 
-#define MAX 80 
-#define PORT 8080 
-#define SA struct sockaddr 
+#include <errno.h>
+#include <stdbool.h>
 
-// Function designed for chat between client and server. 
-void func(int sockfd) 
-{ 
-    char buff[MAX]; 
-    int n; 
-    // infinite loop for chat 
-    for (;;) { 
-        bzero(buff, MAX); 
+#define LINE_SIZE 1024
+#define DB_FILE "db.csv"
 
-        // read the message from client and copy it in buffer 
-        read(sockfd, buff, sizeof(buff)); 
-        // print buffer which contains the client contents 
-        printf("From client: %s\t To client : ", buff); 
-        bzero(buff, MAX); 
-        n = 0; 
-        // copy server message in the buffer 
-        while ((buff[n++] = getchar()) != '\n') 
-            ; 
+/*
+#include <netdb.h>
+#include <netinet/in.h>
 
-        // and send that buffer to client 
-        write(sockfd, buff, sizeof(buff)); 
+int main( int argc, char *argv[] ) {
+   int sockfd, newsockfd, portno, clilen;
+   char buffer[256];
+   struct sockaddr_in serv_addr, cli_addr;
+   int n, pid;
+   
+   sockfd = socket(AF_INET, SOCK_STREAM, 0);
+   
+   if (sockfd < 0) {
+      perror("ERROR opening socket");
+      exit(1);
+   }
+   
+   bzero((char *) &serv_addr, sizeof(serv_addr));
+   portno = 5001;
+   
+   serv_addr.sin_family = AF_INET;
+   serv_addr.sin_addr.s_addr = INADDR_ANY;
+   serv_addr.sin_port = htons(portno);
+   
+   //* Now bind the host address using bind() call.*
+   if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+      perror("ERROR on binding");
+      exit(1);
+   }
+   
+   // Now start listening for the clients, here process will go in sleep mode and will wait for the incoming connection
+   
+   listen(sockfd,5);
+   clilen = sizeof(cli_addr);
+   
+   while (1) {
+      newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
+        
+      if (newsockfd < 0) {
+         perror("ERROR on accept");
+         exit(1);
+      }
+      
+      //* Create child process *
+      pid = fork();
+        
+      if (pid < 0) {
+         perror("ERROR on fork");
+         exit(1);
+      }
+      
+      if (pid == 0) {
+         //* This is the client process *
+         close(sockfd);
+         doprocessing(newsockfd);
+         exit(0);
+      }
+      else {
+         close(newsockfd);
+      }
+        
+   } 
+}*/
 
-        // if msg contains "Exit" then server exit and chat ended. 
-        if (strncmp("exit", buff, 4) == 0) { 
-            printf("Server Exit...\n"); 
-            break; 
-        } 
-    } 
+char* getFieldFromLine(char* line, int fieldIndex) {
+    char* tokenPtr;
+    for (tokenPtr = strtok(line, ","); tokenPtr && *tokenPtr; tokenPtr = strtok(NULL, ",\n")) {
+        if (!--fieldIndex)
+            return tokenPtr;
+    }
+    return NULL;
+}
+
+int checkUsername(char* username) { 
+    bool found = false;
+    char line[LINE_SIZE];
+    FILE *db = fopen(DB_FILE, "r");
+    
+    while (fgets(line, LINE_SIZE, db)) {
+        char* tmp = strdup(line); 
+
+        char* usernameDB = getFieldFromLine(tmp, 1);
+
+        if (strcmp(usernameDB, username) == 0) {
+            found = true;
+            free(tmp);
+            break;
+        }
+
+        free(tmp); // strtok clobbers temp
+    }
+
+    fclose(db);
+    if(found)
+        return -1;
+    else
+        return 0;
+}
+
+int checkCredentials(char* username, unsigned long password) {
+    bool found = false;
+    char line[LINE_SIZE];
+    FILE *db = fopen(DB_FILE, "r");
+
+    char stringPassword[16];
+    itoa(password, stringPassword, 10);
+    
+    while (fgets(line, LINE_SIZE, db)) {
+        char* tmp = strdup(line); 
+        char* tmp2 = strdup(line);
+        
+        char* usernameDB = getFieldFromLine(tmp, 1);
+        char* passwordDB = getFieldFromLine(tmp2, 2);
+
+        if (strcmp(usernameDB, username) == 0 && strcmp(passwordDB, stringPassword) == 0) {
+            found = true;
+            free(tmp);
+            free(tmp2);
+            break;
+        }
+
+        // strtok clobbers temp
+        free(tmp); 
+        free(tmp2);
+    }
+
+    fclose(db);
+    if(found)
+        return 0;
+    else
+        return -1;
+}
+
+int registerCredentials(char* username, unsigned long password) {
+    FILE *db = fopen(DB_FILE, "ab");
+    char stringPassword[16];
+    itoa(password, stringPassword, 10);
+    
+    fwrite(username, sizeof(char), sizeof(username), db);
+    fwrite(",", sizeof(char), sizeof(","), db);
+    fwrite(stringPassword, sizeof(char), sizeof(stringPassword), db);
+    fwrite(",\n", sizeof(char), sizeof(",\n"), db);
+    
+    fclose(db);
+    return 0;
+}
+
+
+int communicate(int socketfd) {
+    
+    // read data from socketfd
+
+    // choose what to do with it
+
+    return 0;
 } 
 
-// Driver function 
-int main() 
-{ 
-    int sockfd, connfd, len; 
-    struct sockaddr_in servaddr, cli; 
 
-    // socket create and verification 
-    sockfd = socket(AF_INET, SOCK_STREAM, 0); 
-    if (sockfd == -1) { 
-        printf("socket creation failed...\n"); 
-        exit(0); 
-    } 
-    else
-        printf("Socket successfully created..\n"); 
-    bzero(&servaddr, sizeof(servaddr)); 
+int main() {
+    int socketfd, newsocketfd = 0;
 
-    // assign IP, PORT 
-    servaddr.sin_family = AF_INET; 
-    servaddr.sin_addr.s_addr = htonl(INADDR_ANY); 
-    servaddr.sin_port = htons(PORT); 
+    // create socketfd
 
-    // Binding newly created socket to given IP and verification 
-    if ((bind(sockfd, (SA*)&servaddr, sizeof(servaddr))) != 0) { 
-        printf("socket bind failed...\n"); 
-        exit(0); 
-    } 
-    else
-        printf("Socket successfully binded..\n"); 
+    // bind socketfd
 
-    // Now server is ready to listen and verification 
-    if ((listen(sockfd, 5)) != 0) { 
-        printf("Listen failed...\n"); 
-        exit(0); 
-    } 
-    else
-        printf("Server listening..\n"); 
-    len = sizeof(cli); 
+    // listen(sockfd)
 
-    // Accept the data packet from client and verification 
-    connfd = accept(sockfd, (SA*)&cli, &len); 
-    if (connfd < 0) { 
-        printf("server acccept failed...\n"); 
-        exit(0); 
-    } 
-    else
-        printf("server acccept the client...\n"); 
+    while(true) {
 
-    // Function for chatting between client and server 
-    func(connfd); 
+        // newsocketfd = accept() 
 
-    // After chatting close the socket 
-    close(sockfd); 
-} 
+        // fork
+
+        // communicate(newsocketfd);
+
+        // exit()   
+        break;         
+    }            
+    
+    // =============== DEBUG ==================
+    // printf("%d\n", checkCredentials("test\0", 1234567890));
+    // printf("%d\n", registerCredentials("test\0", 1234));
+    
+}
+
+

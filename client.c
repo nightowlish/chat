@@ -173,6 +173,10 @@ char* authenticate() {
 
 int main() {
 
+    // create socket
+    
+    // connect to server
+
     char* auth = authenticate();
     if (auth == NULL) {
         printf("Authentication failed!\n");
