@@ -14,19 +14,18 @@
 
 void func(int sockfd) 
 { 
-    char buff[MAX]; 
+    char buff[MAX]; //buffer de 80 de charactere (79)
     int n; 
-    for (;;) { 
-        bzero(buff, sizeof(buff)); 
+    for (;;) { //while(1)
+        bzero(buff, sizeof(buff)); //seteaza toti bitii zero
         printf("Enter the string : "); 
         n = 0; 
-        while ((buff[n++] = getchar()) != '\n') 
-            ; 
-        write(sockfd, buff, sizeof(buff)); 
-        bzero(buff, sizeof(buff)); 
-        read(sockfd, buff, sizeof(buff)); 
+        while ((buff[n++] = getchar()) != '\n'); //iei de la tastatura mesajul
+        write(sockfd, buff, sizeof(buff)); //trimite serverului mesajul
+        bzero(buff, sizeof(buff)); // seteaza iar zero (goleste bufferul)
+        read(sockfd, buff, sizeof(buff)); //sockfd = socket file descriptor - asculta ce vine de la server
         printf("From Server : %s", buff); 
-        if ((strncmp(buff, "exit", 4)) == 0) { 
+        if ((strncmp(buff, "exit", 4)) == 0) { //face asta pana cand se trimite "exit"
             printf("Client Exit...\n"); 
             break; 
         } 
@@ -38,7 +37,7 @@ int main()
     int sockfd, connfd; 
     struct sockaddr_in servaddr, cli; 
 
-    // socket create and varification 
+    // socket create and verification 
     sockfd = socket(AF_INET, SOCK_STREAM, 0); 
     if (sockfd == -1) { 
         printf("socket creation failed...\n"); 
