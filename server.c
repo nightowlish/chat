@@ -17,14 +17,14 @@ int main( int argc, char *argv[] ) {
    struct sockaddr_in serv_addr, cli_addr;
    int n, pid;
    
-   sockfd = socket(AF_INET, SOCK_STREAM, 0);
+   sockfd = socket(AF_INET, SOCK_STREAM, 0); 
    
    if (sockfd < 0) {
       perror("ERROR opening socket");
       exit(1);
    }
    
-   bzero((char *) &serv_addr, sizeof(serv_addr));
+   bzero((char *) &serv_addr, sizeof(serv_addr)); //seteaza toti bitii 0 ai structurii serv_addr
    portno = 5001;
    
    serv_addr.sin_family = AF_INET;
