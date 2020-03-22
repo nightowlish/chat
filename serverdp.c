@@ -37,7 +37,7 @@ char* getFieldFromLine(char* line, int fieldIndex) {
     return NULL;
 }
 
-int checkUsername(char* username, int socket, int i) {
+void checkUsername(char* username, int socket, int i) {
 	printf("Checking username on the server side...\n"); 
     int found = 0;
     char line[LINE_SIZE];
@@ -60,39 +60,40 @@ int checkUsername(char* username, int socket, int i) {
     	fclose(db);
 
 	char response[1024];
-	char socket_num[12];
-	char seq_num[12];
+	uint16_t socket_num = (uint16_t) socket;
+	uint16_t seq_num = (uint16_t) Client[i].seq_number;
 	
-	sprintf(socket_num, "%d", socket);
-	strcpy(response, socket_num);
-	response[12] = 'u';
+	memcpy(response + 0, &socket_num, 1);
+	response[1] = 'u';
 
-	sprintf(seq_num, "%d", Client[i].seq_number);
-	strcpy(response + 13, seq_num);	
+	memcpy(response + 2, &seq_num, 1);
+
+	//printf("Found is: %i\n", found);	
 	
-    	if(found)
+    	if(found != 0)
 	{
-		response[25] = '1';
+		response[3] = '1';
+		response[4] = '\0';
 		printf("Response for username check: %s\n", response);
 		send(socket, response, 1024, 0);
-        	return -1;
 	}
     	else
 	{
-		response[25] = '0';
+		response[3] = '2';
+		response[4] = '\0';
+		printf("Response for username checkt: %s\n", response);
 		send(socket, response, 1024, 0);
-        	return 0;
 	}
 }
 
-int checkCredentials(char* username, unsigned long password, int socket, int i) {
+int checkCredentials(char* username, char* password, int socket, int i) {
 		printf("Credential checking done on the server side...\n");
     	int found = 0;
     	char line[LINE_SIZE];
     	FILE *db = fopen(DB_FILE, "r");
 
     	char stringPassword[16];
-    	sprintf(stringPassword, "%lu", password);
+    	//sprintf(stringPassword, "%lu", password);
     
     	while (fgets(line, LINE_SIZE, db)) {
         	char* tmp = strdup(line); 
@@ -101,7 +102,7 @@ int checkCredentials(char* username, unsigned long password, int socket, int i) 
         	char* usernameDB = getFieldFromLine(tmp, 1);
         	char* passwordDB = getFieldFromLine(tmp2, 2);
 
-        	if (strcmp(usernameDB, username) == 0 && strcmp(passwordDB, stringPassword) == 0) {
+        	if (strcmp(usernameDB, username) == 0 && strcmp(passwordDB, password) == 0) {
             		found = 1;
             		free(tmp);
             		free(tmp2);
@@ -126,6 +127,8 @@ int checkCredentials(char* username, unsigned long password, int socket, int i) 
 
 	sprintf(seq_num, "%d", Client[i].seq_number);
 	strcpy(response + 13, seq_num);
+
+	printf("Found is: %i\n", found);
 	
 
   	if(found)
@@ -142,13 +145,13 @@ int checkCredentials(char* username, unsigned long password, int socket, int i) 
 	}
 }
 
-int registerCredentials(char* username, unsigned long password) {
+int registerCredentials(char* username, char* password) {
 	printf("Registering username and password...\n");
     FILE *db = fopen(DB_FILE, "ab");
     char stringPassword[16];
-    sprintf(stringPassword, "%lu", password);
+    //sprintf(stringPassword, "%lu", password);
     
-    fprintf(db, "%s,%s,\n", username, stringPassword);    
+    fprintf(db, "%s,%s,\n", username, password);    
 
     fclose(db);
     return 0;
@@ -174,9 +177,17 @@ void *process_received_messages(void *ClientDetail)
 	{
 		char data[1024];
 		int n;
-		read(clientSocket,data,1024); // store the data sent from the client
-		uint16_t src;
-		memcpy(&src, data + 0, 1);
+		read(clientSocket,data,1024);
+		 // store the data sent from the client
+
+		for(int i = 0; i < 50; i++)
+			printf("%c\n", data[i]);
+
+		uint16_t src = data[0];
+		//memcpy(&src, data + 0, 1);
+
+		printf("Value stored at position 0: %c\n", data[0]);
+		printf("Source: %u\n", src);
 		
 		char c = data[1];
 
@@ -186,79 +197,61 @@ void *process_received_messages(void *ClientDetail)
 		memcpy(username, data + 4, len);
 		printf("User: %s\n", username);*/
 	
-		printf("\n");
-		printf("%u\n", src);
+		/*printf("\n");
+		printf("%u\n", src);*/
 
 		printf("\n");
 
 		uint16_t len = data[3];
 		printf("Length: %u\n", len);
 		memcpy(username, data + 4, len);
-		//printf("User: %s\n", username);
+		printf("User: %s\n", username);
 
 		int registered = 0;
 		
-		while(registered == 0)
-		{
+		//while(registered == 0)
+		//{
 			//printf("Entering the authentication loop\n");
 			
-			if(data[12] == 'c')
+			if(data[1] == 'c')
 			{
-				char username_len[12];
-			
-				strncpy(username_len, data + 25, 12);
-				int usrnm_len = atoi(username_len);
+				uint16_t username_len = data[3];
 
-				char *username = malloc(sizeof(char) * (usrnm_len + 1));
-				strncpy(username, data + 49, usrnm_len);
+				char *username = malloc(sizeof(char) * (username_len + 1));
+				strncpy(username, data + 5, username_len);
 
-				char password_len_string[12];
-			
-				strncpy(password_len_string, data + 37, 12);
-				int password_len = atoi(password_len_string);
+				uint16_t password_len = data[4];
 
-				char *password_string = malloc(sizeof(char) * (password_len + 1));
-				strncpy(password_string, data + 49, password_len);
-				int password = atoi(password_string);
+				char *password = malloc(sizeof(char) * (password_len + 1));
+				strncpy(password, data + 5 + username_len, password_len);
 				
-				checkCredentials(username, (unsigned long) password, fd, clientCount);
-				break;
+				checkCredentials(username, password, fd, clientCount);
 
 			}
-			if(data[12] == 'u')
+			if(data[1] == 'u')
 			{
-				char username_len[12];
-				strncpy(username_len, data + 25, 12);
-				int usrnm_len = atoi(username_len);
-				char *username = malloc(sizeof(char) * (usrnm_len + 1));
+				uint16_t username_len = data[3];
+				char *username = malloc(sizeof(char) * (username_len + 1));
 
-				strcpy(username, data + 25);
+				strncpy(username, data + 4, username_len);
 				checkUsername(username, fd, clientCount);
 			}
 
-			if(data[12] == 'r')
+			if(data[1] == 'r')
 			{
-				char username_len[12];
-			
-				strncpy(username_len, data + 25, 12);
-				int usrnm_len = atoi(username_len);
+				uint16_t username_len = data[3];
 
-				char *username = malloc(sizeof(char) * (usrnm_len + 1));
-				strncpy(username, data + 49, usrnm_len);
+				char *username = malloc(sizeof(char) * (username_len + 1));
+				strncpy(username, data + 5, username_len);
 
-				char password_len_string[12];
-			
-				strncpy(password_len_string, data + 37, 12);
-				int password_len = atoi(password_len_string);
+				uint16_t password_len = data[4];
 
-				char *password_string = malloc(sizeof(char) * (password_len + 1));
-				strncpy(password_string, data + 49, password_len);
-				int password = atoi(password_string);
+				char *password = malloc(sizeof(char) * (password_len + 1));
+				strncpy(password, data + 5 + username_len, password_len);
 
-				registerCredentials(username, (unsigned long) password);
-				break;
+				registerCredentials(username, password);
 			}
-		}
+		//}
 
 
 		for(int i = 0; i <= clientCount; i++) // send the message to all the other clients

@@ -148,7 +148,9 @@ int checkUsername(char* username, int clientSocket) {
 	//char socket[12];
 	//sprintf(socket, "%d", clientSocket);
 	uint16_t socket = (uint16_t)clientSocket;
+	printf("Socket number is: %u\n", socket);
 	memcpy(data + 0, &socket, 1);
+	printf("Value stored at position 0 is: %c\n", data[0]);
 
 	data[1] = 'u';
 
@@ -165,9 +167,9 @@ int checkUsername(char* username, int clientSocket) {
 	//sprintf(usrnm_len, "%d", username_len);
 	memcpy(data + 3, &usrnm_len, 1);
 
-	strcpy(data + 4, username);
+	memcpy(data + 4, username, usrnm_len);
 
-	data[7 + username_len] = '\0';
+	data[4 + username_len] = '\0';
 	
 	for(int i = 0; i < 50; i++)
 		printf("%c\n", data[i]);
@@ -184,12 +186,12 @@ int checkUsername(char* username, int clientSocket) {
 	strncpy(recv_seq_num, response + 13, 12);
 	seq_number = atoi(recv_seq_num);
 	
-	char res = response[25];
+	char res = response[3];
 	
-	if(res == '0')
-		return 0;
+	if(res == '1')
+		return 1;
 	else
-		return -1;
+		return 0;
 	 
 }
 
@@ -201,8 +203,7 @@ int signup(int clientSocket) {
     printf("Enter username:\n");
     fgets(username, MAX_SIZE, stdin);
 	printf("Username is: %s\n", username);
-	checkUsername(username, clientSocket);
-    if (checkUsername(username, clientSocket) != 0) {
+    if (checkUsername(username, clientSocket) == 0) {
         printf("Username not available!\n");
         return signup(clientSocket);
     }
