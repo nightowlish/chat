@@ -85,17 +85,16 @@ int checkCredentials(char* username, char* password, int clientSocket) {
 
 
 	// Trimit mesajul construit la server
-	send(clientSocket, data, strlen(data), 0);
+	write(clientSocket, data, strlen(data));
 	seq_number++;
 	
 	// Astept raspuns de la server
-	recv(clientSocket, response, 1024, 0);
-	char recv_seq_num[12];
+	read(clientSocket, response, 1024);
+	uint16_t recv_seq_num = response[2];
 	
-	strncpy(recv_seq_num, response + 13, 12);
-	seq_number = atoi(recv_seq_num);
+	seq_number = recv_seq_num;
 	
-	char res = response[25];
+	char res = response[3];
 	
 	if(res == '0')
 		return 0;
@@ -110,6 +109,7 @@ int registerCredentials(char* username, char* password, int clientSocket) {
 
 	printf("Sending credentials to server...\n");
 	char data[1024];
+	char response[1024];
 	
 	uint16_t socket = (uint16_t)clientSocket;
 	memcpy(data + 0, &socket, 1);
@@ -131,11 +131,14 @@ int registerCredentials(char* username, char* password, int clientSocket) {
 	memcpy(data + 5 + usrn_len, password, pass_len);
 	data[5 + usrn_len + pass_len] = '\0';
 
-	send(clientSocket, data, strlen(data), 0);
+	write(clientSocket, data, strlen(data));
 	seq_number++;
 
-
-    return 0;
+	read(clientSocket, response, 1024);
+	
+	if(response[3] == '1')
+		return 0;
+	else return registerCredentials(username, password, clientSocket);
 }
 
 int checkUsername(char* username, int clientSocket) {                 
@@ -180,11 +183,10 @@ int checkUsername(char* username, int clientSocket) {
 	write(clientSocket, data, strlen(data));
 	seq_number++;
 
-	recv(clientSocket, response, 1024, 0);
-	char recv_seq_num[12];
-	
-	strncpy(recv_seq_num, response + 13, 12);
-	seq_number = atoi(recv_seq_num);
+	read(clientSocket, response, 1024);
+	uint16_t  recv_seq_num = response[2];
+
+	seq_number = recv_seq_num;
 	
 	char res = response[3];
 	
@@ -203,7 +205,7 @@ int signup(int clientSocket) {
     printf("Enter username:\n");
     fgets(username, MAX_SIZE, stdin);
 	printf("Username is: %s\n", username);
-    if (checkUsername(username, clientSocket) == 0) {
+    if (checkUsername(username, clientSocket) == 1) {
         printf("Username not available!\n");
         return signup(clientSocket);
     }
