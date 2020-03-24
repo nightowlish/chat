@@ -23,7 +23,7 @@ int clientCount = 0;*/
 int main(){
 
 	int sockfd, ret;
-	 struct sockaddr_in serverAddr;
+	struct sockaddr_in serverAddr;
 
 	int newSocket;
 	struct sockaddr_in newAddr;
@@ -58,13 +58,24 @@ int main(){
 		printf("[-]Error in binding.\n");
 	}
 
-
+	int clients[12] = {-1};
+	int cnt = 0;
+	
 	while(1){
 		newSocket = accept(sockfd, (struct sockaddr*)&newAddr, &addr_size);
 		if(newSocket < 0){
 			exit(1);
 		}
 		printf("Connection accepted from %s:%d\n", inet_ntoa(newAddr.sin_addr), ntohs(newAddr.sin_port));
+		//When having more than the fixed number of clients, the server will exit
+		//the max number can be modified in the clients array above
+		if(cnt<12) {
+			clients[cnt++] = newSocket;
+		}
+		else {
+			printf("Maximum number of clients reached...\n");
+			exit(1);
+		}
 
 		if((childpid = fork()) == 0){
 			close(sockfd);
@@ -76,7 +87,10 @@ int main(){
 					break;
 				}else{
 					printf("Client: %s\n", buffer);
-					send(newSocket, buffer, strlen(buffer), 0);
+					//Send to all the clients the message received from the current client
+					for(int i=0; i<cnt;i++) {
+						send(clients[i], buffer, strlen(buffer), 0);
+					}
 					bzero(buffer, sizeof(buffer));
 				}
 			}
