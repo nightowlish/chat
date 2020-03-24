@@ -6,6 +6,7 @@
 #include <string.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <sys/types.h>
 
 #define MAX_SIZE 256
 
@@ -308,24 +309,18 @@ int main()
     		printf("Enter a message: ");
     		fgets((message + 25), 999, stdin);
 		
-		char socket[12];
+		send(fd, message, strlen(message), 0);
 
-		sprintf(socket, "%d", fd);
+		if(strcmp(message, ":exit") == 0){
+			close(fd);
+			printf("[-]Disconnected from server.\n");
+			exit(1);
+		}
 
-		strcpy(message, socket);
-
-		message[12] = 'm';
-		
-		char seq_num[12];
-
-		sprintf(seq_num, "%d", seq_number);
-		strcpy(message + 13, seq_num);
-
-		if(strlen(message + 25) != 0)
-			printf("The message is: %s\n", (message + 7));
-    		send(fd, message, strlen(message), 0);
-		seq_number++;
-		//strcpy(message, "");
-		//An extra breaking condition can be added here (to terminate the while loop)
+		if(recv(fd, message, 1024, 0) < 0){
+			printf("[-]Error in receiving data.\n");
+		}else{
+			printf("Server: \t%s\n", message);
+		}
 	}
 }
