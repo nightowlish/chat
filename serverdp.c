@@ -1,12 +1,4 @@
-#include <stdio.h>
-#include <sys/socket.h> //For Sockets
-#include <stdlib.h>
-#include <netinet/in.h> //For the AF_INET (Address Family)
-#include <string.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <pthread.h>
-
+/*
 #define LINE_SIZE 1024
 #define DB_FILE "db.csv"
 
@@ -14,9 +6,91 @@ struct sockaddr_in serv; //This is our main socket variable.
 int fd; //This is the socket file descriptor that will be used to identify the socket
 int conn; //This is the connection file descriptor that will be used to distinguish client connections.
 char message[1024] = ""; //This array will store the messages that are sent by the server
-int clientCount = 0;
+int clientCount = 0;*/
 
-struct client{
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <pthread.h>
+
+#define PORT 4444
+
+int main(){
+
+	int sockfd, ret;
+	 struct sockaddr_in serverAddr;
+
+	int newSocket;
+	struct sockaddr_in newAddr;
+
+	socklen_t addr_size;
+
+	char buffer[1024];
+	pid_t childpid;
+
+	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	if(sockfd < 0){
+		printf("[-]Error in connection.\n");
+		exit(1);
+	}
+	printf("[+]Server Socket is created.\n");
+
+	memset(&serverAddr, '\0', sizeof(serverAddr));
+	serverAddr.sin_family = AF_INET;
+	serverAddr.sin_port = htons(PORT);
+	serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+	ret = bind(sockfd, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+	if(ret < 0){
+		printf("[-]Error in binding.\n");
+		exit(1);
+	}
+	printf("[+]Bind to port %d\n", 4444);
+
+	if(listen(sockfd, 10) == 0){
+		printf("[+]Listening....\n");
+	}else{
+		printf("[-]Error in binding.\n");
+	}
+
+
+	while(1){
+		newSocket = accept(sockfd, (struct sockaddr*)&newAddr, &addr_size);
+		if(newSocket < 0){
+			exit(1);
+		}
+		printf("Connection accepted from %s:%d\n", inet_ntoa(newAddr.sin_addr), ntohs(newAddr.sin_port));
+
+		if((childpid = fork()) == 0){
+			close(sockfd);
+
+			while(1){
+				recv(newSocket, buffer, 1024, 0);
+				if(strcmp(buffer, ":exit") == 0){
+					printf("Disconnected from %s:%d\n", inet_ntoa(newAddr.sin_addr), ntohs(newAddr.sin_port));
+					break;
+				}else{
+					printf("Client: %s\n", buffer);
+					send(newSocket, buffer, strlen(buffer), 0);
+					bzero(buffer, sizeof(buffer));
+				}
+			}
+		}
+
+	}
+
+	close(newSocket);
+
+
+	return 0;
+}
+
+/*struct client{
 
 	int index;
 	int sockID;
@@ -182,7 +256,7 @@ int communicate(int socketfd) {
 
     return 0;
 } 
-
+*//*
 void *process_received_messages(void *ClientDetail)
 {
 	struct client* clientDetail = (struct client*) ClientDetail;
@@ -210,12 +284,12 @@ void *process_received_messages(void *ClientDetail)
 
 		char username[5];
 
-		/*uint16_t len = data[3];
-		memcpy(username, data + 4, len);
-		printf("User: %s\n", username);*/
+		//uint16_t len = data[3];
+		//memcpy(username, data + 4, len);
+		//printf("User: %s\n", username);
 	
-		/*printf("\n");
-		printf("%u\n", src);*/
+		//printf("\n");
+		//printf("%u\n", src);
 
 		printf("\n");
 
@@ -249,11 +323,11 @@ void *process_received_messages(void *ClientDetail)
 			printf("Before executing the function\n");
 			response = checkCredentials(username, password, fd, clientCount);
 			printf("After executing the function\n");
-			/*response[0] = '3';
-			response[1] = 'u';
-			response[2] = '2';
-			response[3] = '0';
-			response[4] = '\0';*/
+			//response[0] = '3';
+			//response[1] = 'u';
+			//response[2] = '2';
+			//response[3] = '0';
+			//response[4] = '\0';
 			printf("Response is: %s\n", response);
 			write(fd, response, 1024);
 		}
@@ -266,12 +340,12 @@ void *process_received_messages(void *ClientDetail)
 
 			char* response;
 			response = checkUsername(username, fd, clientCount);
-			/*char response[1024];
-			response[0] = '3';
-			response[1] = 'u';
-			response[2] = '2';
-			response[3] = '0';
-			response[4] = '\0';*/
+			//char response[1024];
+			//response[0] = '3';
+			//response[1] = 'u';
+			//response[2] = '2';
+			//response[3] = '0';
+			//response[4] = '\0';
 			//printf("Response is: %s\n", response);
 			write(fd, response, 1024);
 		}
@@ -333,8 +407,8 @@ int main()
    
 	}
 
-	/*for(int i = 0 ; i < clientCount ; i ++)
-		pthread_join(thread[i],NULL);*/
+	//for(int i = 0 ; i < clientCount ; i ++)
+		//pthread_join(thread[i],NULL);
 	printf("Why are you like this?\n");
 
-}
+}*/
