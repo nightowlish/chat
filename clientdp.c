@@ -1,20 +1,68 @@
-#include <stdio.h>
-#include <sys/socket.h> //For Sockets
-#include <stdlib.h>
-#include <netinet/in.h> //For the AF_INET (Address Family)
-#include <arpa/inet.h>
-#include <string.h>
-#include <pthread.h>
-#include <unistd.h>
-#include <sys/types.h>
-
-#define MAX_SIZE 256
+/*#define MAX_SIZE 256
 
 struct sockaddr_in serv; //This is our main socket variable.
 int fd; //This is the socket file descriptor that will be used to identify the socket
 int conn; //This is the connection file descriptor that will be used to distinguish client connections.
 char message[1024] = ""; //This array will store the messages that are sent by the server
-int seq_number = 1;
+int seq_number = 1;*/
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <pthread.h>
+
+#define PORT 4444
+
+int main(){
+
+	int clientSocket, ret;
+	struct sockaddr_in serverAddr;
+	char buffer[1024];
+
+	clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+	if(clientSocket < 0){
+		printf("[-]Error in connection.\n");
+		exit(1);
+	}
+	printf("[+]Client Socket is created.\n");
+
+	memset(&serverAddr, '\0', sizeof(serverAddr));
+	serverAddr.sin_family = AF_INET;
+	serverAddr.sin_port = htons(PORT);
+	serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+	ret = connect(clientSocket, (struct sockaddr*)&serverAddr, sizeof(serverAddr));
+	if(ret < 0){
+		printf("[-]Error in connection.\n");
+		exit(1);
+	}
+	printf("[+]Connected to Server.\n");
+
+	while(1){
+		printf("Client: \t");
+		scanf("%s", &buffer[0]);
+		send(clientSocket, buffer, strlen(buffer), 0);
+
+		if(strcmp(buffer, ":exit") == 0){
+			close(clientSocket);
+			printf("[-]Disconnected from server.\n");
+			exit(1);
+		}
+
+		if(recv(clientSocket, buffer, 1024, 0) < 0){
+			printf("[-]Error in receiving data.\n");
+		}else{
+			printf("Server: \t%s\n", buffer);
+		}
+	}
+
+	return 0;
+}
 
 /*void *receiving(void *sockID)
 {
@@ -36,7 +84,7 @@ int seq_number = 1;
 	}
 }*/
 
-int openInterface() {
+/*int openInterface() {
     // return some error code != 0 if encountered fatal problem
     return 0;
 }
@@ -323,4 +371,4 @@ int main()
 			printf("Server: \t%s\n", message);
 		}
 	}
-}
+}*/
