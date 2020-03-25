@@ -12,12 +12,14 @@ int fd; //This is the socket file descriptor that will be used to identify the s
 int conn; //This is the connection file descriptor that will be used to distinguish client connections.
 char message[100] = ""; //This array will store the messages that are sent by the server
 int clientCount = 0;
+//int seq_number = 1;
 
 struct client{
 
 	int index;
 	int sockID;
 	char username[16];
+	int seq_number;
 
 };
 
@@ -37,8 +39,9 @@ void *process_received_messages(void *ClientDetail)
 		data[read] = '\0';
 		printf("Server received: %s\n", data);
 
+		uint16_t us_len = data[0];
 		char command[7];
-		strncpy(command, data, 7);
+		strncpy(command, data + 3 + us_len, 7);
 		printf("Command: %s\n", command);
 
 		char connect[7];
@@ -48,17 +51,81 @@ void *process_received_messages(void *ClientDetail)
 		int ret = strcmp(command, connect);
 		printf("Ret is: %i\n", ret);
 
+		int last_seq_num = Client[index].seq_number;
+
+		Client[index].seq_number = data[2 + us_len];
+
+		if(Client[index].seq_number != last_seq_num + 1)
+		{
+			printf("Packet loss!\n");
+		}
+
 		if(strcmp(command, connect) == 0)
 		{
 			printf("Matches with connect\n");
 			char user[16];
-			strncpy(user, data + 8, 16);
+			strncpy(user, data + 11 + us_len, 16);
+			user[us_len] = '\0';
 			printf("User: %s\n", user);
 			strcpy(Client[index].username, user);
+
+			char response[1024];
+			
+			int usn_len = strlen(user);
+			uint16_t user_len= (uint16_t) usn_len;
+	
+			memcpy(response, &user_len, 1);
+			memcpy(response + 1, Client[index].username, usn_len - 1);
+		
+			int data_len = strlen(data);
+			uint16_t len = (uint16_t) data_len;
+		
+			memcpy(response + 1 + usn_len - 1, &len, 1);
+		
+			//memcpy(response + 1 + usn_len -1 + 1, data, data_len);
+			response[1 + usn_len] = 'a';
+				
+			Client[index].seq_number++;
+			uint16_t seq_num = (uint16_t) Client[index].seq_number;
+			memcpy(response + 2 + usn_len, &seq_num, 1);
+		
+			uint16_t flag = 1;
+
+			memcpy(response + 3 + usn_len, &flag, 1);
+
+			send(Client[index].sockID, response, strlen(response), 0);
+			memset(response, 0, sizeof response);
+				
 		}
 		else if(strncmp(command, "exit", 4) == 0)
 		{
 			printf("Matches with exit\n");
+			char response[1024];
+			
+			int usn_len = strlen(Client[index].username);
+			uint16_t user_len= (uint16_t) usn_len;
+	
+			memcpy(response, &user_len, 1);
+			memcpy(response + 1, Client[index].username, usn_len - 1);
+		
+			int data_len = strlen(data);
+			uint16_t len = (uint16_t) data_len;
+		
+			memcpy(response + 1 + usn_len - 1, &len, 1);
+		
+			//memcpy(response + 1 + usn_len -1 + 1, data, data_len);
+			response[1 + usn_len] = 'e';
+				
+			Client[index].seq_number++;
+			uint16_t seq_num = (uint16_t) Client[index].seq_number;
+			memcpy(response + 2 + usn_len, &seq_num, 1);
+		
+			uint16_t flag = 1;
+
+			memcpy(response + 3 + usn_len, &flag, 1);
+
+			send(Client[index].sockID, response, strlen(response), 0);
+			memset(response, 0, sizeof response);
 			close(clientSocket);
 			break;
 		}
@@ -86,8 +153,15 @@ void *process_received_messages(void *ClientDetail)
 		
 				memcpy(response + 1 + usn_len - 1, &len, 1);
 		
-				memcpy(response + 1 + usn_len -1 + 1, data, data_len);
-				//response[3 + usn_len + data_len + 1] = '\0';
+				//memcpy(response + 1 + usn_len -1 + 1, data, data_len);
+				response[1 + usn_len] = 'm';
+				
+				Client[index].seq_number++;
+				uint16_t seq_num = (uint16_t) Client[index].seq_number;
+				memcpy(response + 2 + usn_len, &seq_num, 1);
+
+				memcpy(response + 3 + usn_len, data + 3 + usn_len, data_len);
+				
 				for(int i = 0; i < 20; i++)
 					printf("%c is at %i\n", response[i], i);
 				printf("Sending to clients: %s\n", response);

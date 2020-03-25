@@ -11,6 +11,9 @@ struct sockaddr_in serv; //This is our main socket variable.
 int fd; //This is the socket file descriptor that will be used to identify the socket
 int conn; //This is the connection file descriptor that will be used to distinguish client connections.
 char message[1024] = ""; //This array will store the messages that are sent by the server
+int seq_number = 0;
+char username[16];
+uint16_t user_len;
 
 void *receiving(void *sockID)
 {
@@ -26,8 +29,33 @@ void *receiving(void *sockID)
 			uint16_t us_len = data[0];
 			char username[16];
 			strncpy(username, data + 1, us_len - 1);
-			username[1 + us_len] = '\0';
-			printf("%s: %s\n", username, data + 1 + us_len);
+			//username[1 + us_len] = '\0';
+			uint16_t message_len = data[us_len];
+
+			int last_seq_num = seq_number;		
+			
+			seq_number = data[us_len + 2];
+	
+			/*if(seq_number != last_seq_num + 1)
+			{
+				printf("Packet loss\n");
+			}*/
+
+			if(data[us_len + 1] == 'm')
+				printf("%s: %s\n", username, data + 3 + us_len);
+			if(data[us_len + 1] == 'a')
+			{
+				uint16_t flag = data[us_len + 3];
+	
+				if(flag == 1);
+			}
+			if(data[us_len + 1] == 'e')
+			{
+				uint16_t flag = data[us_len + 3];
+	
+				if(flag == 1);
+			}
+			//seq_number = data[us_len + 2];
 			memset(username, 0, sizeof username);
 		}
 		memset(data, 0, sizeof data);
@@ -47,21 +75,86 @@ int main()
 	
 	while(1) 
 	{
+		char data[1024];
+		//uint16_t seq_num = (uint16_t) seq_number;
+
     		//printf("Enter a message: ");
-    		fgets(message, 1024, stdin);
+    		fgets(message, 1004, stdin);
 		//scanf("%s", message);
 
-		/*char command[7];
+		char command[7];
 		strncpy(command, message, 7);
 
-		if(command == "connect")
+		uint16_t data_len = strlen(message);
+
+		if(strncmp(message, "connect", 7) == 0)
 		{
-			char user[16];
-			strncpy(user, message + 8, 16);
-		}*/
-    		send(fd, message, strlen(message), 0);
-		//strcpy(message, "");
-		//An extra breaking condition can be added here (to terminate the while loop)
+			//char user[16];
+			strncpy(username, message + 8, 16);
+			int us_len = strlen(username);
+			user_len = (uint16_t) us_len;
+		
+			memcpy(data, &user_len, 1);
+			memcpy(data + 1, username, user_len - 1);
+
+			memcpy(data + 1 + user_len - 1, &data_len, 1);
+		
+			data[1 + user_len] = 'c';
+				
+			seq_number++;
+			uint16_t seq_num = (uint16_t) seq_number;
+			memcpy(data + 2 + user_len, &seq_num, 1);
+
+			memcpy(data + 3 + user_len, message, data_len);
+			data[user_len + data_len + 4] = '\0';
+
+			send(fd, data, strlen(data), 0);
+			memset(data, 0, sizeof data);	
+		}
+		else if(strncmp(message, "exit", 4) == 0)
+		{
+			memcpy(data, &user_len, 1);
+			memcpy(data + 1, username, user_len - 1);
+
+			memcpy(data + 1 + user_len - 1, &data_len, 1);
+		
+			data[1 + user_len] = 'e';
+				
+			seq_number++;
+			uint16_t seq_num = (uint16_t) seq_number;
+			memcpy(data + 2 + user_len, &seq_num, 1);
+
+			memcpy(data + 3 + user_len, message, data_len);
+			data[user_len + data_len + 4] = '\0';
+
+			send(fd, data, strlen(data), 0);
+			memset(data, 0, sizeof data);	
+		}
+		else
+		{
+			memcpy(data, &user_len, 1);
+			memcpy(data + 1, username, user_len - 1);
+
+			memcpy(data + 1 + user_len - 1, &data_len, 1);
+		
+			data[1 + user_len] = 'm';
+				
+			seq_number++;
+			uint16_t seq_num = (uint16_t) seq_number;
+			memcpy(data + 2 + user_len, &seq_num, 1);
+
+			memcpy(data + 3 + user_len, message, data_len);
+			data[user_len + data_len + 4] = '\0';
+
+			send(fd, data, strlen(data), 0);
+			memset(data, 0, sizeof data);	
+			/*int us_len = strlen(username);
+			uint16_t user_len = (uint16_t) us_len;*/
+			//uint16_t data_len = strlen(message);
+    			//send(fd, message, strlen(message), 0);
+			//strcpy(message, "");
+			//An extra breaking condition can be added here (to terminate the while loop)
+		}
 	}
 
 	close(fd);
