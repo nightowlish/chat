@@ -7,181 +7,22 @@
 #include <unistd.h>
 #include <pthread.h>
 
-#define LINE_SIZE 1024
-#define DB_FILE "db.csv"
-
 struct sockaddr_in serv; //This is our main socket variable.
 int fd; //This is the socket file descriptor that will be used to identify the socket
 int conn; //This is the connection file descriptor that will be used to distinguish client connections.
-char message[1024] = ""; //This array will store the messages that are sent by the server
+char message[100] = ""; //This array will store the messages that are sent by the server
 int clientCount = 0;
 
 struct client{
 
 	int index;
 	int sockID;
-	char *username;
-	int seq_number;
+	char username[16];
 
 };
 
 struct client Client[1024];
 pthread_t thread[1024];
-
-char* getFieldFromLine(char* line, int fieldIndex) {
-    char* tokenPtr;
-    for (tokenPtr = strtok(line, ","); tokenPtr && *tokenPtr; tokenPtr = strtok(NULL, ",\n")) {
-        if (!--fieldIndex)
-            return tokenPtr;
-    }
-    return NULL;
-}
-
-char* checkUsername(char* username, int socket, int i) {
-	printf("Checking username on the server side...\n"); 
-    int found = 0;
-    char line[LINE_SIZE];
-    FILE *db = fopen(DB_FILE, "r");
-    
-    while (fgets(line, LINE_SIZE, db)) {
-        char* tmp = strdup(line); 
-
-        char* usernameDB = getFieldFromLine(tmp, 1);
-
-        if (strcmp(usernameDB, username) == 0) {
-            found = 1;
-            free(tmp);
-            break;
-        }
-
-        free(tmp); // strtok clobbers temp
-    }
-
-    	fclose(db);
-
-	char response[1024];
-	uint16_t socket_num = (uint16_t) socket;
-	uint16_t seq_num = (uint16_t) Client[i].seq_number;
-	
-	memcpy(response + 0, &socket_num, 1);
-	response[1] = 'u';
-
-	memcpy(response + 2, &seq_num, 1);
-
-	printf("Found is: %i\n", found);	
-	
-    	if(found != 0)
-	{
-		response[3] = '1';
-		response[4] = '\0';
-		printf("Response for username check: %s\n", response);
-		//write(socket, response, 1024);
-		return response;
-	}
-    	else
-	{
-		response[3] = '2';
-		response[4] = '\0';
-		printf("Response for username checkt: %s\n", response);
-		//write(socket, response, 1024);
-		return response;
-	}
-}
-
-int checkCredentials(char* username, char* password, int socket, int i) {
-		printf("Credential checking done on the server side...\n");
-    	int found = 0;
-    	char line[LINE_SIZE];
-    	FILE *db = fopen(DB_FILE, "r");
-
-    	char stringPassword[16];
-    	//sprintf(stringPassword, "%lu", password);
-    
-    	while (fgets(line, LINE_SIZE, db)) {
-        	char* tmp = strdup(line); 
-        	char* tmp2 = strdup(line);
-        
-        	char* usernameDB = getFieldFromLine(tmp, 1);
-        	char* passwordDB = getFieldFromLine(tmp2, 2);
-
-        	if (strcmp(usernameDB, username) == 0 && strcmp(passwordDB, password) == 0) {
-            		found = 1;
-            		free(tmp);
-            		free(tmp2);
-            		break;
-        	}
-
-        	// strtok clobbers temp
-        	free(tmp); 
-        	free(tmp2);
-    	}
-
-    	fclose(db);
-
-	char response[1024];
-	uint16_t socket_num = (uint16_t) socket;
-	uint16_t seq_num = (uint16_t) Client[i].seq_number;
-	
-	memcpy(response + 0, &socket_num, 1);
-
-	response[1] = 'c';
-
-	memcpy(response + 2, &seq_num, 1);
-
-	printf("Found is: %i\n", found);
-	
-
-  	if(found)
-	{
-		response[3] = '0';
-		response[4] = '\0';
-		write(socket, response, 1024);
-        	return 0;
-	}
-    	else
-	{
-		response[3] = '1';
-		response[4] = '\0';
-		write(socket, response, 1024);
-        	return -1;
-	}
-}
-
-int registerCredentials(char* username, char* password, int i) {
-	printf("Registering username and password...\n");
-    FILE *db = fopen(DB_FILE, "ab");
-    char stringPassword[16];
-    //sprintf(stringPassword, "%lu", password);
-    
-    fprintf(db, "%s,%s,\n", username, password);    
-
-    fclose(db);
-    
-    char response[1024];
-    
-    memcpy(response + 0, &(uint16_t)fd, 1);
-    
-    response[1] = 'r';
-    
-    memcpy(response + 2, &(uint16_t)Client[i].seq_number, 1);
-    response[3] = '1';
-    
-    response[4] = '\0';
-    
-    write(fd, response, 1024);
-
-    return 0;
-}
-
-
-int communicate(int socketfd) {
-    
-    // read data from socketfd
-
-    // choose what to do with it
-
-    return 0;
-} 
 
 void *process_received_messages(void *ClientDetail)
 {
@@ -191,122 +32,72 @@ void *process_received_messages(void *ClientDetail)
 
 	while(1)
 	{
-		printf("Processing...\n");
 		char data[1024];
-		int n;
-		read(clientSocket,data,1024);
-		 // store the data sent from the client
+		int read = recv(clientSocket,data,1024,0); // store the data sent from the client
+		data[read] = '\0';
+		printf("Server received: %s\n", data);
 
-		for(int i = 0; i < 50; i++)
-			printf("%c\n", data[i]);
+		char command[7];
+		strncpy(command, data, 7);
+		printf("Command: %s\n", command);
 
-		uint16_t src = data[0];
-		//memcpy(&src, data + 0, 1);
+		char connect[7];
+		strcpy(connect, "connect");
+		//connect[8] = '\0';
+		printf("Connect is: %s\n", connect);
+		int ret = strcmp(command, connect);
+		printf("Ret is: %i\n", ret);
 
-		printf("Value stored at position 0: %c\n", data[0]);
-		printf("Source: %u\n", src);
-		
-		char c = data[1];
-
-		char username[5];
-
-		/*uint16_t len = data[3];
-		memcpy(username, data + 4, len);
-		printf("User: %s\n", username);*/
-	
-		/*printf("\n");
-		printf("%u\n", src);*/
-
-		printf("\n");
-
-		uint16_t len = data[3];
-		printf("Length: %u\n", len);
-		memcpy(username, data + 4, len);
-		printf("User: %s\n", username);
-
-		//int registered = 0;
-		
-		//while(registered == 0)
-		//{
-			//printf("Entering the authentication loop\n");
-
-		printf("%c\n", data[1]);
-			
-		if(data[1] == 'c')
+		if(strcmp(command, connect) == 0)
 		{
-			uint16_t username_len = data[3];
-
-			char *username = malloc(sizeof(char) * (username_len + 1));
-			strncpy(username, data + 5, username_len);
-
-			uint16_t password_len = data[4];
-
-			char *password = malloc(sizeof(char) * (password_len + 1));
-			strncpy(password, data + 5 + username_len, password_len);
-			
-			char* response;
-	
-			printf("Before executing the function\n");
-			response = checkCredentials(username, password, fd, clientCount);
-			printf("After executing the function\n");
-			/*response[0] = '3';
-			response[1] = 'u';
-			response[2] = '2';
-			response[3] = '0';
-			response[4] = '\0';*/
-			printf("Response is: %s\n", response);
-			write(fd, response, 1024);
+			printf("Matches with connect\n");
+			char user[16];
+			strncpy(user, data + 8, 16);
+			printf("User: %s\n", user);
+			strcpy(Client[index].username, user);
 		}
-		if(data[1] == 'u')
+		else if(strncmp(command, "exit", 4) == 0)
 		{
-			uint16_t username_len = data[3];
-			char *username = malloc(sizeof(char) * (username_len + 1));
-
-			strncpy(username, data + 4, username_len);
-
-			char* response;
-			response = checkUsername(username, fd, clientCount);
-			/*char response[1024];
-			response[0] = '3';
-			response[1] = 'u';
-			response[2] = '2';
-			response[3] = '0';
-			response[4] = '\0';*/
-			//printf("Response is: %s\n", response);
-			write(fd, response, 1024);
+			printf("Matches with exit\n");
+			close(clientSocket);
+			break;
 		}
-
-		if(data[1] == 'r')
+		else
 		{
-				uint16_t username_len = data[3];
-
-				char *username = malloc(sizeof(char) * (username_len + 1));
-				strncpy(username, data + 5, username_len);
-
-				uint16_t password_len = data[4];
-
-				char *password = malloc(sizeof(char) * (password_len + 1));
-				strncpy(password, data + 5 + username_len, password_len);
-
-				registerCredentials(username, password);
-		}
-
-		//}
-
-		if(data[1] == 'm')
-		{
+			printf("Just a message\n");
 			for(int i = 0; i <= clientCount; i++) // send the message to all the other clients
 			{
-				if(Client[i].index != index)
-				{
-					//printf("Sending %s to client %i\n", data, index);
-					write(Client[i].sockID, data, strlen(data));
+				//printf("Sending %s to client %i\n", data, index);
+				char response[1024];
+				
+				int usn_len = strlen(Client[index].username);
+				uint16_t user_len = (uint16_t) usn_len;
+				/*if(usn_len >= 10)
+					memcpy(response, &user_len, 2);
+				else
+					memcpy(response, &user_len, 1);*/
 
-				}
+				
+				memcpy(response, &user_len, 1);
+				memcpy(response + 1, Client[index].username, usn_len - 1);
+		
+				int data_len = strlen(data);
+				uint16_t len = (uint16_t) data_len;
+		
+				memcpy(response + 1 + usn_len - 1, &len, 1);
+		
+				memcpy(response + 1 + usn_len -1 + 1, data, data_len);
+				//response[3 + usn_len + data_len + 1] = '\0';
+				for(int i = 0; i < 20; i++)
+					printf("%c is at %i\n", response[i], i);
+				printf("Sending to clients: %s\n", response);
+				
+				send(Client[i].sockID, response, strlen(response), 0);
+				memset(response, 0, sizeof response);
 			}
-		}
+		}		
 	}
-	printf("Stopped processing...\n");
+	return NULL;
 }
 
 int main()
@@ -327,14 +118,12 @@ int main()
 		pthread_create(&thread[clientCount], NULL, process_received_messages, (void *) &Client[clientCount]);
 		
 		clientCount++;
-
-		for(int i = 0 ; i < clientCount ; i ++)
-			pthread_join(thread[i],NULL);
    
 	}
 
-	/*for(int i = 0 ; i < clientCount ; i ++)
-		pthread_join(thread[i],NULL);*/
-	printf("Why are you like this?\n");
+	for(int i = 0 ; i < clientCount ; i ++)
+		pthread_join(thread[i],NULL);
+
+	close(fd);
 
 }
