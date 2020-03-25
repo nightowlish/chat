@@ -17,6 +17,7 @@ struct client{
 
 	int index;
 	int sockID;
+	int message_cnt; //numarul mesajelor trimise de client
 	char username[16];
 
 };
@@ -29,9 +30,11 @@ void *process_received_messages(void *ClientDetail)
 	struct client* clientDetail = (struct client*) ClientDetail;
 	int index = clientDetail -> index;
 	int clientSocket = clientDetail -> sockID;
+	int mess_cnt = clientDetail -> message_cnt;
 
 	while(1)
 	{
+		clientDetail -> message_cnt = mess_cnt++;
 		char data[1024];
 		int read = recv(clientSocket,data,1024,0); // store the data sent from the client
 		data[read] = '\0';
@@ -83,10 +86,12 @@ void *process_received_messages(void *ClientDetail)
 		
 				int data_len = strlen(data);
 				uint16_t len = (uint16_t) data_len;
+				uint16_t mess_nr = (uint16_t) clientDetail -> message_cnt;
 		
 				memcpy(response + 1 + usn_len - 1, &len, 1);
+				memcpy(response + 1 + usn_len - 1 + 1, &mess_nr, 1);
 		
-				memcpy(response + 1 + usn_len -1 + 1, data, data_len);
+				memcpy(response + 1 + usn_len -1 + 1 + 1, data, data_len);
 				//response[3 + usn_len + data_len + 1] = '\0';
 				for(int i = 0; i < 20; i++)
 					printf("%c is at %i\n", response[i], i);
@@ -107,6 +112,10 @@ int main()
 	serv.sin_addr.s_addr = INADDR_ANY;
 	fd = socket(AF_INET, SOCK_STREAM, 0); //This will create a new socket and also return the identifier of the socket into fd.
 	// To handle errors, you can add an if condition that checks whether fd is greater than 0. If it isn't, prompt an error
+	if(fd < 0) {
+		printf("Socket creating error...\n");
+		exit(1);
+	}
 	bind(fd, (struct sockaddr *)&serv, sizeof(serv)); //assigns the address specified by serv to the socket
 	listen(fd,1024); //Listen for client connections. Maximum 1024 connections will be permitted.
 	//Now we start handling the connections.
@@ -114,6 +123,7 @@ int main()
 	{
 		Client[clientCount].sockID = accept(fd, (struct sockaddr *)NULL, NULL);
 		Client[clientCount].index = clientCount;
+		Client[clientCount].message_cnt = 0;
 
 		pthread_create(&thread[clientCount], NULL, process_received_messages, (void *) &Client[clientCount]);
 		
