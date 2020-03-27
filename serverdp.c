@@ -41,30 +41,57 @@ void *process_received_messages(void *ClientDetail)
 
 		uint16_t us_len = data[0];
 		char command[7];
-		strncpy(command, data + 3 + us_len, 7);
-		printf("Command: %s\n", command);
+		strncpy(command, data + 4 + us_len, 7);
 
 		char connect[7];
 		strcpy(connect, "connect");
 		//connect[8] = '\0';
-		printf("Connect is: %s\n", connect);
 		int ret = strcmp(command, connect);
-		printf("Ret is: %i\n", ret);
 
 		int last_seq_num = Client[index].seq_number;
 
-		Client[index].seq_number = data[2 + us_len];
+		Client[index].seq_number = (int)data[3 + us_len];
 
 		if(Client[index].seq_number != last_seq_num + 1)
 		{
 			printf("Packet loss!\n");
+
+			char error_mess[100];
+			memset(error_mess, 0, sizeof error_mess);
+
+			strcpy(error_mess, "Your last message was not delivered! Please try again.\n");
+
+			char response[1024];
+			
+			int usn_len = strlen(Client[index].username);
+			uint16_t user_len= (uint16_t) usn_len;
+	
+			memcpy(response, &user_len, 1);
+			memcpy(response + 1, Client[index].username, usn_len);
+		
+			int data_len = strlen(error_mess);
+			uint16_t len = (uint16_t) data_len;
+		
+			memcpy(response + 1 + usn_len, &len, 1);
+		
+			//memcpy(response + 1 + usn_len -1 + 1, data, data_len);
+			response[2 + usn_len] = 'm';
+				
+			Client[index].seq_number++;
+			uint16_t seq_num = (uint16_t) Client[index].seq_number;
+			memcpy(response + 3 + usn_len, &seq_num, 1);
+
+			memcpy(response + 4 + usn_len, error_mess, strlen(error_mess));
+
+			send(Client[index].sockID, response, strlen(response), 0);
+			memset(response, 0, sizeof response);
+			continue;
 		}
 
 		if(strcmp(command, connect) == 0)
 		{
-			printf("Matches with connect\n");
 			char user[16];
-			strncpy(user, data + 11 + us_len, 16);
+			strncpy(user, data + 12 + us_len, 16);
 			user[us_len] = '\0';
 			printf("User: %s\n", user);
 			strcpy(Client[index].username, user);
@@ -75,23 +102,23 @@ void *process_received_messages(void *ClientDetail)
 			uint16_t user_len= (uint16_t) usn_len;
 	
 			memcpy(response, &user_len, 1);
-			memcpy(response + 1, Client[index].username, usn_len - 1);
+			memcpy(response + 1, Client[index].username, usn_len);
 		
 			int data_len = strlen(data);
-			uint16_t len = (uint16_t) data_len;
+			uint16_t len = 1;
 		
-			memcpy(response + 1 + usn_len - 1, &len, 1);
+			memcpy(response + 1 + usn_len, &len, 1);
 		
 			//memcpy(response + 1 + usn_len -1 + 1, data, data_len);
-			response[1 + usn_len] = 'a';
+			response[2 + usn_len] = 'a';
 				
 			Client[index].seq_number++;
 			uint16_t seq_num = (uint16_t) Client[index].seq_number;
-			memcpy(response + 2 + usn_len, &seq_num, 1);
+			memcpy(response + 3 + usn_len, &seq_num, 1);
 		
 			uint16_t flag = 1;
 
-			memcpy(response + 3 + usn_len, &flag, 1);
+			memcpy(response + 4 + usn_len, &flag, 1);
 
 			send(Client[index].sockID, response, strlen(response), 0);
 			memset(response, 0, sizeof response);
@@ -99,72 +126,63 @@ void *process_received_messages(void *ClientDetail)
 		}
 		else if(strncmp(command, "exit", 4) == 0)
 		{
-			printf("Matches with exit\n");
 			char response[1024];
 			
 			int usn_len = strlen(Client[index].username);
 			uint16_t user_len= (uint16_t) usn_len;
 	
 			memcpy(response, &user_len, 1);
-			memcpy(response + 1, Client[index].username, usn_len - 1);
+			memcpy(response + 1, Client[index].username, usn_len);
 		
 			int data_len = strlen(data);
-			uint16_t len = (uint16_t) data_len;
+			uint16_t len = 1;
 		
-			memcpy(response + 1 + usn_len - 1, &len, 1);
+			memcpy(response + 1 + usn_len, &len, 1);
 		
 			//memcpy(response + 1 + usn_len -1 + 1, data, data_len);
-			response[1 + usn_len] = 'e';
+			response[2 + usn_len] = 'e';
 				
 			Client[index].seq_number++;
 			uint16_t seq_num = (uint16_t) Client[index].seq_number;
-			memcpy(response + 2 + usn_len, &seq_num, 1);
+			memcpy(response + 3 + usn_len, &seq_num, 1);
 		
 			uint16_t flag = 1;
 
-			memcpy(response + 3 + usn_len, &flag, 1);
+			memcpy(response + 4 + usn_len, &flag, 1);
 
 			send(Client[index].sockID, response, strlen(response), 0);
 			memset(response, 0, sizeof response);
-			close(clientSocket);
+			close(Client[index].sockID);
 			break;
 		}
 		else
 		{
-			printf("Just a message\n");
 			for(int i = 0; i <= clientCount; i++) // send the message to all the other clients
 			{
-				//printf("Sending %s to client %i\n", data, index);
 				char response[1024];
 				
 				int usn_len = strlen(Client[index].username);
 				uint16_t user_len = (uint16_t) usn_len;
-				/*if(usn_len >= 10)
-					memcpy(response, &user_len, 2);
-				else
-					memcpy(response, &user_len, 1);*/
 
 				
 				memcpy(response, &user_len, 1);
-				memcpy(response + 1, Client[index].username, usn_len - 1);
+				memcpy(response + 1, Client[index].username, usn_len);
 		
 				int data_len = strlen(data);
-				uint16_t len = (uint16_t) data_len;
+				uint16_t len = (uint16_t) data[1 + usn_len];
 		
-				memcpy(response + 1 + usn_len - 1, &len, 1);
+				memcpy(response + 1 + usn_len, &len, 1);
 		
 				//memcpy(response + 1 + usn_len -1 + 1, data, data_len);
-				response[1 + usn_len] = 'm';
+				response[2 + usn_len] = 'm';
 				
-				Client[index].seq_number++;
-				uint16_t seq_num = (uint16_t) Client[index].seq_number;
-				memcpy(response + 2 + usn_len, &seq_num, 1);
+				Client[i].seq_number++;
+				uint16_t seq_num = (uint16_t) Client[i].seq_number;
+				memcpy(response + 3 + usn_len, &seq_num, 1);
 
-				memcpy(response + 3 + usn_len, data + 3 + usn_len, data_len);
+				memcpy(response + 4 + usn_len, data + 4 + usn_len, data_len);
 				
-				for(int i = 0; i < 20; i++)
-					printf("%c is at %i\n", response[i], i);
-				printf("Sending to clients: %s\n", response);
+				//printf("Sending to clients: %s\n", response);
 				
 				send(Client[i].sockID, response, strlen(response), 0);
 				memset(response, 0, sizeof response);
@@ -188,6 +206,7 @@ int main()
 	{
 		Client[clientCount].sockID = accept(fd, (struct sockaddr *)NULL, NULL);
 		Client[clientCount].index = clientCount;
+		Client[clientCount].seq_number = 0;
 
 		pthread_create(&thread[clientCount], NULL, process_received_messages, (void *) &Client[clientCount]);
 		
