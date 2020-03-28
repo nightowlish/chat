@@ -29,8 +29,8 @@ void *receiving(void *sockID)
 			uint16_t us_len = data[0];
 			char username[16];
 			strncpy(username, data + 1, us_len);
-			//username[1 + us_len] = '\0';
-			uint16_t message_len = data[us_len + 1];
+
+			//uint16_t message_len = data[us_len + 1];
 
 			int last_seq_num = seq_number;	
 			
@@ -39,10 +39,35 @@ void *receiving(void *sockID)
 			if(seq_number != last_seq_num + 1)
 			{
 				printf("Packet loss\n");
+
+				char response[1024];
+
+				char *mess = "retransmit";
+				uint16_t data_len = strlen(mess);
+
+				memcpy(response, &user_len, 1);
+				memcpy(response + 1, username, user_len);
+
+				response[user_len + 1] = data_len;
+		
+				response[2 + user_len] = 'r';
+				
+				seq_number++;
+				uint16_t seq_num = (uint16_t) seq_number;	
+	
+				memcpy(response + 3 + user_len, &seq_num, 1);
+
+				memcpy(response + 4 + user_len, mess, data_len);
+				response[user_len + data_len + 5] = '\0';
+
+				send(fd, response, strlen(response), 0);
+				memset(response, 0, sizeof response);
+				continue;
 			}
 
 			if(data[us_len + 2] == 'm')
 				printf("%s: %s\n", username, data + 4 + us_len);
+
 			if(data[us_len + 2] == 'a')
 			{
 				uint16_t flag = data[us_len + 4];
@@ -58,6 +83,10 @@ void *receiving(void *sockID)
 					close(fd);
 					exit(0);
 				}
+			}
+			if(data[us_len + 2] == 'r')
+			{
+				printf("%s\n",data + 4 + us_len);
 			}
 			memset(username, 0, sizeof username);
 		}
@@ -79,7 +108,6 @@ int main()
 	while(1) 
 	{
 		char data[1024];
-		//uint16_t seq_num = (uint16_t) seq_number;
 
     		//printf("Enter a message: ");
     		fgets(message, 1004, stdin);
@@ -90,9 +118,9 @@ int main()
 		uint16_t data_len = strlen(message);
 		data_len = data_len - 1; // for \n
 
-		if(strncmp(message, "connect", 7) == 0)
+		if(strncmp(message, "!connect", 8) == 0 && seq_number == 0)
 		{
-			strncpy(username, message + 8, 16);
+			strncpy(username, message + 9, 16);
 			int us_len = strlen(username);
 			user_len = (uint16_t) us_len - 1;
 		
@@ -114,7 +142,7 @@ int main()
 			send(fd, data, strlen(data), 0);
 			memset(data, 0, sizeof data);	
 		}
-		else if(strncmp(message, "exit", 4) == 0)
+		else if(strncmp(message, "!exit", 5) == 0)
 		{
 			memcpy(data, &user_len, 1);
 			memcpy(data + 1, username, user_len);

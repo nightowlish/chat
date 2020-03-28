@@ -10,9 +10,8 @@
 struct sockaddr_in serv; //This is our main socket variable.
 int fd; //This is the socket file descriptor that will be used to identify the socket
 int conn; //This is the connection file descriptor that will be used to distinguish client connections.
-char message[100] = ""; //This array will store the messages that are sent by the server
+char last_message_sent[1024] = ""; //This array will store the messages that are sent by the server
 int clientCount = 0;
-//int seq_number = 1;
 
 struct client{
 
@@ -31,22 +30,23 @@ void *process_received_messages(void *ClientDetail)
 	struct client* clientDetail = (struct client*) ClientDetail;
 	int index = clientDetail -> index;
 	int clientSocket = clientDetail -> sockID;
+	char user[16];
 
 	while(1)
 	{
 		char data[1024];
 		int read = recv(clientSocket,data,1024,0); // store the data sent from the client
 		data[read] = '\0';
+		//if(strlen(data) != 0){
 		printf("Server received: %s\n", data);
 
 		uint16_t us_len = data[0];
-		char command[7];
-		strncpy(command, data + 4 + us_len, 7);
+		char command[8];
+		strncpy(command, data + 4 + us_len, 8);
 
-		char connect[7];
-		strcpy(connect, "connect");
+		char connect[8];
+		strcpy(connect, "!connect");
 		//connect[8] = '\0';
-		int ret = strcmp(command, connect);
 
 		int last_seq_num = Client[index].seq_number;
 
@@ -75,23 +75,26 @@ void *process_received_messages(void *ClientDetail)
 			memcpy(response + 1 + usn_len, &len, 1);
 		
 			//memcpy(response + 1 + usn_len -1 + 1, data, data_len);
-			response[2 + usn_len] = 'm';
+			response[2 + usn_len] = 'r';
 				
 			Client[index].seq_number++;
 			uint16_t seq_num = (uint16_t) Client[index].seq_number;
 			memcpy(response + 3 + usn_len, &seq_num, 1);
 
 			memcpy(response + 4 + usn_len, error_mess, strlen(error_mess));
+			
+			memset(last_message_sent, 0, sizeof last_message_sent);
+			strcpy(last_message_sent, response);
 
 			send(Client[index].sockID, response, strlen(response), 0);
 			memset(response, 0, sizeof response);
 			continue;
 		}
 
-		if(strcmp(command, connect) == 0)
+		if(strcmp(command, connect) == 0 && Client[index].seq_number == 1)
 		{
-			char user[16];
-			strncpy(user, data + 12 + us_len, 16);
+			//char user[16];
+			strncpy(user, data + 13 + us_len, 16);
 			user[us_len] = '\0';
 			printf("User: %s\n", user);
 			strcpy(Client[index].username, user);
@@ -104,7 +107,6 @@ void *process_received_messages(void *ClientDetail)
 			memcpy(response, &user_len, 1);
 			memcpy(response + 1, Client[index].username, usn_len);
 		
-			int data_len = strlen(data);
 			uint16_t len = 1;
 		
 			memcpy(response + 1 + usn_len, &len, 1);
@@ -120,11 +122,14 @@ void *process_received_messages(void *ClientDetail)
 
 			memcpy(response + 4 + usn_len, &flag, 1);
 
+			memset(last_message_sent, 0, sizeof last_message_sent);
+			strcpy(last_message_sent, response);
+
 			send(Client[index].sockID, response, strlen(response), 0);
 			memset(response, 0, sizeof response);
 				
 		}
-		else if(strncmp(command, "exit", 4) == 0)
+		else if(strncmp(command, "!exit", 5) == 0)
 		{
 			char response[1024];
 			
@@ -134,7 +139,6 @@ void *process_received_messages(void *ClientDetail)
 			memcpy(response, &user_len, 1);
 			memcpy(response + 1, Client[index].username, usn_len);
 		
-			int data_len = strlen(data);
 			uint16_t len = 1;
 		
 			memcpy(response + 1 + usn_len, &len, 1);
@@ -150,14 +154,21 @@ void *process_received_messages(void *ClientDetail)
 
 			memcpy(response + 4 + usn_len, &flag, 1);
 
+			memset(last_message_sent, 0, sizeof last_message_sent);
+			strcpy(last_message_sent, response);
+
 			send(Client[index].sockID, response, strlen(response), 0);
 			memset(response, 0, sizeof response);
 			close(Client[index].sockID);
 			break;
 		}
+		else if(data[2 + us_len] == 'r')
+		{
+			send(Client[index].sockID, last_message_sent, strlen(last_message_sent), 0);
+		}
 		else
 		{
-			for(int i = 0; i <= clientCount; i++) // send the message to all the other clients
+			for(int i = 0; i < clientCount; i++) // send the message to all the other clients
 			{
 				char response[1024];
 				
@@ -181,6 +192,9 @@ void *process_received_messages(void *ClientDetail)
 				memcpy(response + 3 + usn_len, &seq_num, 1);
 
 				memcpy(response + 4 + usn_len, data + 4 + usn_len, data_len);
+
+				memset(last_message_sent, 0, sizeof last_message_sent);
+				strcpy(last_message_sent, response);
 				
 				//printf("Sending to clients: %s\n", response);
 				
@@ -189,6 +203,7 @@ void *process_received_messages(void *ClientDetail)
 			}
 		}		
 	}
+	//printf("Finishing thread for %s\n", user);
 	return NULL;
 }
 
@@ -207,6 +222,7 @@ int main()
 		Client[clientCount].sockID = accept(fd, (struct sockaddr *)NULL, NULL);
 		Client[clientCount].index = clientCount;
 		Client[clientCount].seq_number = 0;
+
 
 		pthread_create(&thread[clientCount], NULL, process_received_messages, (void *) &Client[clientCount]);
 		
